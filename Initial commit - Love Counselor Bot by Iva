@@ -1,0 +1,56 @@
+import telebot
+import os
+from huggingface_hub import InferenceClient
+from telebot import types
+
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+HF_TOKEN = os.getenv('HF_TOKEN')
+
+client = InferenceClient(
+    model="Qwen/Qwen3-235B-A22B",
+    token=HF_TOKEN
+)
+
+bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
+
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    btn1 = types.KeyboardButton("💬 مشاوره رایگان (۱ سوال)")
+    btn2 = types.KeyboardButton("💎 خرید اشتراک VIP")
+    markup.add(btn1, btn2)
+    bot.reply_to(message, 
+                 "🌟 سلام عزیزم… من «ایوا» هستم — مشاورِ عشقِ تو!\n"
+                 "هر سوالی درباره عشق، رابطه، یا قلبِ شکسته داری — من اینجام.\n\n"
+                 "👇 یکی از گزینه‌ها رو انتخاب کن:",
+                 reply_markup=markup)
+
+@bot.message_handler(func=lambda message: True)
+def handle_message(message):
+    if message.text == "💬 مشاوره رایگان (۱ سوال)":
+        bot.reply_to(message, "💌 خب عزیزم… سوالت رو بپرس — من با تمام وجود گوش می‌دم ❤️")
+        bot.register_next_step_handler(message, get_answer_from_qwen)
+    elif message.text == "💎 خرید اشتراک VIP":
+        bot.reply_to(message, 
+                     "✨ اشتراک VIP شامل:\n"
+                     "• مشاوره نامحدود\n"
+                     "• پاسخ‌های شخصی‌سازی شده\n"
+                     "• پیام‌های صوتی عاشقانه!\n\n"
+                     "💰 قیمت: ۵۰,۰۰۰ تومان در ماه\n"
+                     "💳 برای خرید: @YourPaymentBot")
+    else:
+        get_answer_from_qwen(message)
+
+def get_answer_from_qwen(message):
+    bot.reply_to(message, "🧠 در حال اتصال به «ایوا»… لطفاً صبر کن!")
+    try:
+        response = client.text_generation(
+            prompt=f"تو یه مشاور عشق هستی — با لحنی شیرین، عمیق و کمی شوخ. پاسخ بده:\n{message.text}",
+            max_new_tokens=500
+        )
+        bot.reply_to(message, response)
+    except Exception as e:
+        bot.reply_to(message, f"❌ خطا: {str(e)}\nبعداً دوباره امتحان کن!")
+
+if __name__ == "__main__":
+    bot.polling()
